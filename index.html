@@ -120,7 +120,7 @@
     <div class="container">
         <div id="login-section">
             <div class="login-box">
-                <h2 style="color: var(--night-blue); margin-top:0;">Log Masuk Ketua Panitia</h2>
+                <h2 style="color: var(--night-blue); margin-top:0;">Log Masuk KP</h2>
                 <input type="text" id="userid" placeholder="ID Pengguna" required>
                 <input type="password" id="password" placeholder="Kata Laluan" required>
                 <button onclick="login()">Log Masuk</button>
@@ -250,7 +250,7 @@
 
         // --- 3. MUAT TURUN SEMUA PANGKALAN DATA (TING 1 - 5) ---
         function muatTurunSemuaData() {
-            document.getElementById('status-mesej').innerText = "Sedang memproses pangkalan data (Tingkatan 1-5). Sila tunggu sebentar...";
+            document.getElementById('status-mesej').innerText = "Sedang menyegerak pangkalan data (Tingkatan 1-5). Sila tunggu sebentar...";
             document.getElementById('loading-spinner').style.display = 'block';
 
             let promises = Object.keys(csvUrls).map(t => {
@@ -302,7 +302,7 @@
             return ['BM','ENG','MATHS','SEJ','SN','GEO','BIB','PM','RBT','PSV','PJPK']; 
         }
 
-        // Proses Data untuk Satu Tingkatan & Satu Subjek
+        // Proses Data untuk Satu Tingkatan & Satu Subjek (LOGIK BAHARU FILTER)
         function janaStats(ting, subjek) {
             let isAtas = (ting === '4' || ting === '5');
             let mData = (isAtas ? mapAtas : mapRendah)[subjek];
@@ -316,65 +316,103 @@
                 kelasStats: {}, pelajarList: []
             };
 
-            if(!mData) return stats; // Subjek tiada untuk tingkatan ini
+            if(!mData) return stats;
 
             let dataRaw = state.allData[ting].slice(1).filter(r => r[col('C')]);
 
+            // Langkah 1: Kumpulkan pelajar mengikut kelas terlebih dahulu
+            let classData = {};
             dataRaw.forEach((m) => {
                 let k = m[col('D')];
-                if(!k || !dapatkanSubjekKelas(k.trim()).includes(subjek)) return;
-                
+                if(!k) return;
                 let kelasName = k.trim();
+                
+                // Cek adakah kelas ini mengambil subjek ini secara lalai (default)
+                if(!dapatkanSubjekKelas(kelasName).includes(subjek)) return;
+                
+                if(!classData[kelasName]) classData[kelasName] = [];
+                classData[kelasName].push(m);
+            });
+
+            // Langkah 2: Proses setiap kelas. Cek jika kelas ada isi markah atau belum.
+            Object.keys(classData).forEach(kelasName => {
+                let pelajarKelas = classData[kelasName];
+                
+                // Semak: Adakah wujud SEKURANG-KURANGNYA seorang pelajar yang ada markah atau TH?
+                let hasAnyMark = pelajarKelas.some(m => {
+                    let mark = m[mData.m];
+                    let gred = m[mData.g] ? m[mData.g].trim().toUpperCase() : '';
+                    return (mark && mark !== 'NULL' && mark !== '') || (mark === 'TH' || gred === 'TH');
+                });
+
                 if(!stats.kelasStats[kelasName]) {
                     stats.kelasStats[kelasName] = { daftar:0, hadir:0, nullCount:0, sumGP:0, validGP:0 };
                 }
 
-                stats.calonDaftar++;
-                stats.kelasStats[kelasName].daftar++;
-                
-                let jantina = m[col('DB')] ? m[col('DB')].trim().toUpperCase() : '-';
-                
-                let mark = m[mData.m];
-                let gredRaw = m[mData.g];
-                let gred = gredRaw ? gredRaw.trim().toUpperCase() : '';
-                
-                let objPelajar = { nama: m[col('C')], kelas: kelasName, jantina: jantina, markah: mark, gred: gred };
-
-                if(!mark || mark === 'NULL' || mark === '') {
-                    stats.calonNull++;
-                    stats.kelasStats[kelasName].nullCount++;
-                    objPelajar.status = 'NULL';
-                } else if(mark === 'TH' || gred === 'TH') {
-                    stats.calonTH++;
-                    stats.gredCount['TH']++;
-                    objPelajar.status = 'TH';
-                } else {
-                    stats.calonHadir++;
-                    stats.kelasStats[kelasName].hadir++;
-                    objPelajar.status = 'HADIR';
-
-                    if(jantina === 'L') stats.lelaki.ambil++;
-                    if(jantina === 'P') stats.perempuan.ambil++;
+                pelajarKelas.forEach(m => {
+                    let jantina = m[col('DB')] ? m[col('DB')].trim().toUpperCase() : '-';
+                    let mark = m[mData.m];
+                    let gredRaw = m[mData.g];
+                    let gred = gredRaw ? gredRaw.trim().toUpperCase() : '';
                     
-                    let s = skorGred(gred);
-                    if(s !== null) {
-                        stats.sumGP += s;
-                        stats.validGP++;
-                        stats.kelasStats[kelasName].sumGP += s;
-                        stats.kelasStats[kelasName].validGP++;
+                    let isNull = (!mark || mark === 'NULL' || mark === '');
+                    let isTH = (mark === 'TH' || gred === 'TH');
+
+                    // ==========================================
+                    // LOGIK BAHARU (FILTER PELAJAR TIADA MARKAH)
+                    // ==========================================
+                    // Jika kelas ini SUDAH MENGISI MARKAH (hasAnyMark = true), 
+                    // dan pelajar ini tiada markah (isNull = true) serta bukan Tidak Hadir, 
+                    // kita abaikan (gugurkan) pelajar ini dari subjek tersebut.
+                    if (hasAnyMark && isNull && !isTH) {
+                        return; // Jangan kira pelajar ini
+                    }
+                    // Jika hasAnyMark = false, bermaksud seluruh kelas belum diisi markah.
+                    // Maka kita kira semua pelajar sebagai NULL agar terpapar di analisis.
+                    // ==========================================
+
+                    stats.calonDaftar++;
+                    stats.kelasStats[kelasName].daftar++;
+                    
+                    let objPelajar = { nama: m[col('C')], kelas: kelasName, jantina: jantina, markah: mark, gred: gred };
+
+                    if(isNull && !isTH) {
+                        stats.calonNull++;
+                        stats.kelasStats[kelasName].nullCount++;
+                        objPelajar.status = 'NULL';
+                    } else if(isTH) {
+                        stats.calonTH++;
+                        stats.gredCount['TH']++;
+                        objPelajar.status = 'TH';
+                    } else {
+                        stats.calonHadir++;
+                        stats.kelasStats[kelasName].hadir++;
+                        objPelajar.status = 'HADIR';
+
+                        if(jantina === 'L') stats.lelaki.ambil++;
+                        if(jantina === 'P') stats.perempuan.ambil++;
                         
-                        if(stats.gredCount[gred] !== undefined) stats.gredCount[gred]++;
-                        
-                        if(gred === 'G' || gred === 'E' || gred === 'F') stats.gagal++; 
-                        else {
-                            stats.lulus++;
-                            if(jantina === 'L') stats.lelaki.lulus++;
-                            if(jantina === 'P') stats.perempuan.lulus++;
+                        let s = skorGred(gred);
+                        if(s !== null) {
+                            stats.sumGP += s;
+                            stats.validGP++;
+                            stats.kelasStats[kelasName].sumGP += s;
+                            stats.kelasStats[kelasName].validGP++;
+                            
+                            if(stats.gredCount[gred] !== undefined) stats.gredCount[gred]++;
+                            
+                            if(gred === 'G' || gred === 'E' || gred === 'F') stats.gagal++; 
+                            else {
+                                stats.lulus++;
+                                if(jantina === 'L') stats.lelaki.lulus++;
+                                if(jantina === 'P') stats.perempuan.lulus++;
+                            }
                         }
                     }
-                }
-                stats.pelajarList.push(objPelajar);
+                    stats.pelajarList.push(objPelajar);
+                });
             });
+
             return stats;
         }
 
@@ -452,7 +490,7 @@
                 }
             }
 
-            // Tetapan Y-Axis ditukar kepada normal (mula dari 0 ke 9 di bahagian bawah)
+            // Graf Normal dari Bawah
             state.chartsUtama.push(new Chart(document.getElementById('graf-utama-kelas').getContext('2d'), {
                 type: 'bar', data: { labels: kLabels, datasets: [{ label:'GP Kelas', data: kData, backgroundColor: '#0277bd' }] },
                 options: { responsive: true, scales: { y: { min: 0, max: 9 } }, plugins: { title: { display: true, text: `Graf GPMP Mengikut Kelas (Semua Tingkatan)` } } }
@@ -491,7 +529,6 @@
             state.chartsDetail.forEach(c => c.destroy());
             state.chartsDetail = [];
 
-            // Skip validation for fail list since it relies on multiple subjects
             if(s.calonDaftar === 0 && (jenis >= 1 && jenis <= 5)) {
                 document.getElementById('analisis-content').innerHTML = `<p class="warning-text" style="text-align:center;">Tiada rekod calon bagi subjek ${state.subjek} untuk Tingkatan ${t}.</p>`;
                 return;
@@ -587,7 +624,6 @@
                     options: { responsive: true, scales: { y: { min: 0 } }, plugins: { title: { display: true, text: `Kekerapan Gred` } } }
                 }));
                 
-                // Tetapan Y-Axis ditukar kepada normal (mula dari 0 ke 9 di bahagian bawah)
                 state.chartsDetail.push(new Chart(document.getElementById('c-detail-kelas').getContext('2d'), {
                     type: 'bar', data: { labels: kLabels, datasets: [{ label:'GP Kelas', data: kDataGP, backgroundColor: '#f57c00' }] },
                     options: { responsive: true, scales: { y: { min: 0, max: 9 } }, plugins: { title: { display: true, text: `GPMP Kelas` } } }
