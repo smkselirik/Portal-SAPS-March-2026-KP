@@ -120,7 +120,7 @@
     <div class="container">
         <div id="login-section">
             <div class="login-box">
-                <h2 style="color: var(--night-blue); margin-top:0;">Log Masuk KP</h2>
+                <h2 style="color: var(--night-blue); margin-top:0;">Log Masuk Ketua Panitia</h2>
                 <input type="text" id="userid" placeholder="ID Pengguna" required>
                 <input type="password" id="password" placeholder="Kata Laluan" required>
                 <button onclick="login()">Log Masuk</button>
@@ -250,7 +250,7 @@
 
         // --- 3. MUAT TURUN SEMUA PANGKALAN DATA (TING 1 - 5) ---
         function muatTurunSemuaData() {
-            document.getElementById('status-mesej').innerText = "Sedang menyegerak pangkalan data (Tingkatan 1-5). Sila tunggu sebentar...";
+            document.getElementById('status-mesej').innerText = "Sedang memproses pangkalan data (Tingkatan 1-5). Sila tunggu sebentar...";
             document.getElementById('loading-spinner').style.display = 'block';
 
             let promises = Object.keys(csvUrls).map(t => {
