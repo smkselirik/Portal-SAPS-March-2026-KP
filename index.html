@@ -179,6 +179,8 @@
                         <button class="btn-analysis" onclick="paparAnalisis(4, this)">4. Pencapaian Ikut Jantina</button>
                         <button class="btn-analysis" onclick="paparAnalisis(5, this)">5. Graf Taburan Pelajar</button>
                         <button class="btn-analysis" onclick="paparAnalisis(6, this)">6. Gagal BM & Sejarah</button>
+                        <button class="btn-analysis" onclick="paparAnalisis(7, this)">7. Gagal BM Sahaja</button>
+                        <button class="btn-analysis" onclick="paparAnalisis(8, this)">8. Gagal Sejarah Sahaja</button>
                     </div>
                 </div>
 
@@ -489,7 +491,8 @@
             state.chartsDetail.forEach(c => c.destroy());
             state.chartsDetail = [];
 
-            if(s.calonDaftar === 0 && jenis !== 6) {
+            // Skip validation for fail list since it relies on multiple subjects
+            if(s.calonDaftar === 0 && (jenis >= 1 && jenis <= 5)) {
                 document.getElementById('analisis-content').innerHTML = `<p class="warning-text" style="text-align:center;">Tiada rekod calon bagi subjek ${state.subjek} untuk Tingkatan ${t}.</p>`;
                 return;
             }
@@ -581,7 +584,7 @@
 
                 state.chartsDetail.push(new Chart(document.getElementById('c-detail-gred').getContext('2d'), {
                     type: 'bar', data: { labels: gLabels, datasets: [{ label:'Taburan Gred', data: gData, backgroundColor: '#2e7d32' }] },
-                    options: { responsive: true, plugins: { title: { display: true, text: `Kekerapan Gred` } } }
+                    options: { responsive: true, scales: { y: { min: 0 } }, plugins: { title: { display: true, text: `Kekerapan Gred` } } }
                 }));
                 
                 // Tetapan Y-Axis ditukar kepada normal (mula dari 0 ke 9 di bahagian bawah)
@@ -591,8 +594,10 @@
                 }));
                 return; 
             }
-            else if(jenis === 6) {
-                tajukPrint.innerText = `ANALISIS PELAJAR GAGAL BAHASA MELAYU DAN SEJARAH (TINGKATAN ${t})`;
+            else if(jenis === 6 || jenis === 7 || jenis === 8) {
+                let tajukKategori = jenis === 6 ? "GAGAL BAHASA MELAYU DAN SEJARAH" : (jenis === 7 ? "GAGAL BAHASA MELAYU SAHAJA" : "GAGAL SEJARAH SAHAJA");
+                tajukPrint.innerText = `ANALISIS PELAJAR ${tajukKategori} (TINGKATAN ${t})`;
+                
                 let isAtas = (t === '4' || t === '5');
                 let colBM = (isAtas ? mapAtas : mapRendah)['BM']?.g;
                 let colSEJ = (isAtas ? mapAtas : mapRendah)['SEJ']?.g;
@@ -605,14 +610,30 @@
                         let gSEJ = m[colSEJ] ? m[colSEJ].trim().toUpperCase() : '';
                         let failBM = (gBM==='G'||gBM==='E'||gBM==='F');
                         let failSEJ = (gSEJ==='G'||gSEJ==='E'||gSEJ==='F');
-                        if(failBM && failSEJ) failList.push({nama: m[col('C')], kelas: m[col('D')], gBM, gSEJ});
+                        
+                        let match = false;
+                        if (jenis === 6 && failBM && failSEJ) match = true;
+                        else if (jenis === 7 && failBM && !failSEJ) match = true;
+                        else if (jenis === 8 && failSEJ && !failBM) match = true;
+
+                        if(match) {
+                            failList.push({nama: m[col('C')], kelas: m[col('D')], gBM, gSEJ});
+                        }
                     });
                 }
                 
-                html += `<h3>Senarai Murid Gagal BM & Sejarah (Ting. ${t})</h3>
+                html += `<h3>Senarai Murid ${tajukKategori} (Ting. ${t})</h3>
                          <div style="overflow-x:auto;"><table><tr><th>Bil</th><th style="text-align:left;">Nama</th><th>Kelas</th><th>Gred BM</th><th>Gred SEJ</th></tr>`;
-                if(failList.length === 0) html += `<tr><td colspan="5">Tiada rekod pelajar gagal kedua-dua subjek ini.</td></tr>`;
-                else failList.forEach((p,i) => html += `<tr><td>${i+1}</td><td style="text-align:left;">${p.nama}</td><td>${p.kelas}</td><td><b style="color:red;">${p.gBM}</b></td><td><b style="color:red;">${p.gSEJ}</b></td></tr>`);
+                
+                if(failList.length === 0) {
+                    html += `<tr><td colspan="5">Tiada rekod pelajar untuk kategori ini.</td></tr>`;
+                } else {
+                    failList.forEach((p,i) => {
+                        let styleBM = (p.gBM==='G'||p.gBM==='E'||p.gBM==='F') ? 'color:red;' : '';
+                        let styleSEJ = (p.gSEJ==='G'||p.gSEJ==='E'||p.gSEJ==='F') ? 'color:red;' : '';
+                        html += `<tr><td>${i+1}</td><td style="text-align:left;">${p.nama}</td><td>${p.kelas}</td><td><b style="${styleBM}">${p.gBM||'-'}</b></td><td><b style="${styleSEJ}">${p.gSEJ||'-'}</b></td></tr>`;
+                    });
+                }
                 html += `</table></div>`;
             }
 
