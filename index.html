@@ -250,7 +250,7 @@
 
         // --- 3. MUAT TURUN SEMUA PANGKALAN DATA (TING 1 - 5) ---
         function muatTurunSemuaData() {
-            document.getElementById('status-mesej').innerText = "Sedang menyegerak pangkalan data (Tingkatan 1-5). Sila tunggu sebentar...";
+            document.getElementById('status-mesej').innerText = "Sedang memproses pangkalan data (Tingkatan 1-5). Sila tunggu sebentar...";
             document.getElementById('loading-spinner').style.display = 'block';
 
             let promises = Object.keys(csvUrls).map(t => {
