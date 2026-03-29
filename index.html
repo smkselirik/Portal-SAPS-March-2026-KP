@@ -450,9 +450,10 @@
                 }
             }
 
+            // Tetapan Y-Axis ditukar kepada normal (mula dari 0 ke 9 di bahagian bawah)
             state.chartsUtama.push(new Chart(document.getElementById('graf-utama-kelas').getContext('2d'), {
                 type: 'bar', data: { labels: kLabels, datasets: [{ label:'GP Kelas', data: kData, backgroundColor: '#0277bd' }] },
-                options: { responsive: true, scales: { y: { reverse:true, min:0, max:9 } }, plugins: { title: { display: true, text: `Graf GPMP Mengikut Kelas (Semua Tingkatan) - Nilai Rendah Lebih Baik` } } }
+                options: { responsive: true, scales: { y: { min: 0, max: 9 } }, plugins: { title: { display: true, text: `Graf GPMP Mengikut Kelas (Semua Tingkatan)` } } }
             }));
 
             state.chartsUtama.push(new Chart(document.getElementById('graf-utama-jantina').getContext('2d'), {
@@ -582,9 +583,11 @@
                     type: 'bar', data: { labels: gLabels, datasets: [{ label:'Taburan Gred', data: gData, backgroundColor: '#2e7d32' }] },
                     options: { responsive: true, plugins: { title: { display: true, text: `Kekerapan Gred` } } }
                 }));
+                
+                // Tetapan Y-Axis ditukar kepada normal (mula dari 0 ke 9 di bahagian bawah)
                 state.chartsDetail.push(new Chart(document.getElementById('c-detail-kelas').getContext('2d'), {
                     type: 'bar', data: { labels: kLabels, datasets: [{ label:'GP Kelas', data: kDataGP, backgroundColor: '#f57c00' }] },
-                    options: { responsive: true, scales: { y: { reverse:true, min:0, max:9 } }, plugins: { title: { display: true, text: `GPMP Kelas` } } }
+                    options: { responsive: true, scales: { y: { min: 0, max: 9 } }, plugins: { title: { display: true, text: `GPMP Kelas` } } }
                 }));
                 return; 
             }
